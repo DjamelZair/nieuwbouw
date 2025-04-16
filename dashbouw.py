@@ -425,4 +425,4 @@ def update_all_graphs(map_type, selected_types, selected_year):
 
 # --- Server starten ---
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8366)
+    app.run_server(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 8050)))
