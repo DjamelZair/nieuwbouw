@@ -275,7 +275,7 @@ def update_all_graphs(map_type, selected_types, selected_year):
     melted = melted[melted["value"] > 0]
     melted["woningtype_label"] = melted["variable"].map(label_map)
     if map_type == "heatmap":
-        map_fig = px.density_map(
+        map_fig = px.density_mapbox(
             melted,
             lat="lat",
             lon="lon",
@@ -283,19 +283,19 @@ def update_all_graphs(map_type, selected_types, selected_year):
             radius=25,
             center=dict(lat=52.37, lon=4.89),
             zoom=11,
-            map_style="carto-positron",
+            mapbox_style="carto-positron",
             title="<b>Woningbouw Dichtheid (Heatmap)</b>",
             color_continuous_scale="Teal"
         )
     else:
-        map_fig = px.scatter_map(
+        map_fig = px.scatter_mapbox(
             melted,
             lat="lat",
             lon="lon",
             color="woningtype_label",
             hover_name="projectnaamAfkorting",
             hover_data=["stadsdeelNaam", "startBouwGepland"],
-            map_style="open-street-map",
+            mapbox_style="open-street-map",
             zoom=11,
             height=500,
             color_discrete_sequence=color_palette
