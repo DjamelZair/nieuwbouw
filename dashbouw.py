@@ -10,7 +10,6 @@ import dash
 from dash import dcc, html, Output, Input
 import plotly.express as px
 
-
 # --- API call ---
 load_dotenv()
 api_key = os.getenv("GEMEENTE_API_KEY")
@@ -67,62 +66,8 @@ label_map = {
 }
 
 # --- Dash setup ---
-import dash_bootstrap_components as dbc
-
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-
+app = dash.Dash(__name__)
 server = app.server
-sidebar_cards = html.Div([
-    dbc.Card([
-        dbc.CardHeader("Selecteer woningtype", style={
-            "fontSize": "24px", "textAlign": "center", "color": "#005354",
-            "backgroundColor": "#e6f2f2", "fontWeight": "bold"
-        }),
-        dbc.CardBody([
-            dbc.Checklist(
-                id='woningtype-checklist',
-                options=[{"label": label_map[k], "value": k} for k in woningtypes],
-                value=woningtypes,
-                switch=True,
-                style={"fontSize": "18px", "color": "#005354"}
-            )
-        ])
-    ], style={
-        "marginBottom": "30px",
-        "border": "1px solid #008080",
-        "borderRadius": "12px",
-        "boxShadow": "0 2px 8px rgba(0,0,0,0.05)",
-        "backgroundColor": "#ffffff"
-    }),
-    html.Br(),
-    dbc.Card([
-        dbc.CardHeader("Filter op geplande startdatum (t/m jaar)", style={
-            "fontSize": "24px", "textAlign": "center", "color": "#005354",
-            "backgroundColor": "#e6f2f2", "fontWeight": "bold"
-        }),
-        dbc.CardBody([
-            dbc.Label("Jaarfilter", html_for="jaar-slider", style={
-                "textAlign": "center", "width": "100%", "fontSize": "18px", "color": "#005354", "marginBottom": "10px"
-            }),
-            dcc.Slider(
-                id='jaar-slider',
-                min=int(df["startBouwGepland"].dt.year.min()),
-                max=int(df["startBouwGepland"].dt.year.max()),
-                step=1,
-                value=int(df["startBouwGepland"].dt.year.max()),
-                marks={str(year): str(year) for year in sorted(df["startBouwGepland"].dt.year.dropna().unique())},
-                tooltip={"placement": "bottom", "always_visible": True},
-                included=False
-            )
-        ])
-    ], style={
-        "marginBottom": "30px",
-        "border": "1px solid #008080",
-        "borderRadius": "12px",
-        "boxShadow": "0 2px 8px rgba(0,0,0,0.05)",
-        "backgroundColor": "#ffffff"
-    })
-])
 app.layout = html.Div([
     # HEADER
     html.Div([
@@ -180,28 +125,87 @@ app.layout = html.Div([
             ], style={"width": "24%"})
         ], style={"display": "flex", "justifyContent": "space-around", "padding": "1px 2px", "marginBottom": "2px"})
     ]),
-# MAIN BODY
-html.Div([
-    # SIDEBAR
+
+    # MAIN BODY
     html.Div([
-        sidebar_cards,
-        html.Hr(style={"borderTop": "1px solid #ddd", "margin": "20px 0"}),
+        # SIDEBAR
+        html.Div([
+            html.H4("Selecteer woningtype:", style={
+                "fontSize": "30px", 'textAlign': 'center', "color": "#005354"
+            }),
+            dcc.Checklist(
+                id='woningtype-checklist',
+                options=[{"label": label_map[k], "value": k} for k in woningtypes],
+                value=woningtypes,
+                labelStyle={
+                    "display": "block",
+                    "marginBottom": "12px",
+                    "padding": "8px 12px",
+                    "border": "1px solid #008080",
+                    "borderRadius": "8px",
+                    "backgroundColor": "#f2fdfa",
+                    "cursor": "pointer"
+                },
+                inputStyle={
+                    "marginRight": "12px",
+                    "height": "18px",
+                    "width": "18px"
+                },
+                style={
+                    "fontSize": "18px",
+                    "color": "#005354",
+                    "fontFamily": "system-ui",
+                    "padding": "12px"
+                }
+            ),
 
-        html.H4("Verdeling per Wijk", style={
-            "fontSize": "25px", 'textAlign': 'center', "color": "#005354"
-        }),
-        dcc.Graph(id='pie-chart'),
+            html.H4("Filter op geplande startdatum (t/m jaar):", style={
+                "fontSize": "30px", 'textAlign': 'center', "color": "#005354", "marginTop": "20px"
+            }),
 
-        html.H4("Verdeling Woontypen per Wijk", style={
-            "fontSize": "25px", 'textAlign': 'center', "color": "#005354"
+        html.Div([
+            html.Div("Jaar filter", style={
+                "textAlign": "center",
+                "fontWeight": "bold",
+                "fontSize": "18px",
+                "color": "#005354",
+                "marginBottom": "10px"
+            }),
+            dcc.Slider(
+                id='jaar-slider',
+                min=df["startBouwGepland"].dt.year.min(),
+                max=df["startBouwGepland"].dt.year.max(),
+                step=1,
+                value=df["startBouwGepland"].dt.year.max(),
+                marks={str(year): str(year) for year in sorted(df["startBouwGepland"].dt.year.dropna().unique())},
+                tooltip={"placement": "bottom", "always_visible": True},
+                included=False
+            )
+        ], style={
+            "padding": "20px",
+            "backgroundColor": "#f9f9f9",
+            "border": "1px solid #ccc",
+            "borderRadius": "10px",
+            "marginBottom": "30px"
         }),
-        dcc.Graph(id='bar-chart', style={"marginTop": "30px"})
-    ], style={
-        "width": "30%", "padding": "20px",
-        "border": "1px solid #008080", "borderRadius": "12px", "margin": "10px",
-        "boxShadow": "0 2px 10px rgba(0, 0, 0, 0.05)", "backgroundColor": "#fff"
-    }),
-    
+
+            html.Hr(style={"borderTop": "1px solid #ddd", "margin": "20px 0"}),
+
+            html.H4("Verdeling per Wijk", style={
+                "fontSize": "25px", 'textAlign': 'center', "color": "#005354"
+            }),
+            dcc.Graph(id='pie-chart'),
+
+            html.H4("Verdeling Woontypen per Wijk", style={
+                "fontSize": "25px", 'textAlign': 'center', "color": "#005354"
+            }),
+            dcc.Graph(id='bar-chart', style={"marginTop": "30px"})
+        ], style={
+            "width": "30%", "padding": "20px",
+            "border": "1px solid #008080", "borderRadius": "12px", "margin": "10px",
+            "boxShadow": "0 2px 10px rgba(0, 0, 0, 0.05)", "backgroundColor": "#fff"
+        }),
+
         # MAIN PANEL
         html.Div([
             html.H4("GeoLocatie Presentatie Nieuwbouw Plannen:", style={
@@ -425,4 +429,4 @@ def update_all_graphs(map_type, selected_types, selected_year):
 
 # --- Server starten ---
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 8050)))
+    app.run_server(debug=True, port=8366)
