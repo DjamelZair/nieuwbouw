@@ -16,7 +16,7 @@ import dash_bootstrap_components as dbc
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s: %(message)s'
-    # no filename=…, so logs go to stdout/stderr
+    # no filename, so logs go to stdout/stderr
 )
 
 # --- API call ---
@@ -73,9 +73,22 @@ df[['lon', 'lat']] = df[['lon', 'lat']].apply(convert_rd_to_wgs84, axis=1)
 # --- Kolommen voorbereiden ---
 woningtypes = ["socialeHuurZelfstPerm", "middeldureHuur", "vrijeSectorKoop"]
 df[woningtypes] = df[woningtypes].apply(pd.to_numeric, errors="coerce")
-df["startBouwGepland"] = pd.to_datetime(df["startBouwGepland"], errors="coerce")
+
+# Preserve raw date strings, then parse explicitly as ISO
+df['startBouwGepland_raw'] = df.get("startBouwGepland", None)
+df['startBouwGepland'] = pd.to_datetime(
+    df['startBouwGepland_raw'],
+    errors="coerce",  # fallback to NaT if parse fails
+    utc=True         # ensure consistent timezone handling
+)
+# Log how many dates parsed successfully
+parsed = df['startBouwGepland'].notna().sum()
+total = len(df)
+logging.debug("Dates parsed: %s non-NaT out of %s rows", parsed, total)
+
 df["projectnaamAfkorting"] = df["projectnaamAfkorting"].apply(
-    lambda x: x.split('/')[1].split('-')[0] if isinstance(x, str) and '/' in x else x)
+    lambda x: x.split('/')[1].split('-')[0] if isinstance(x, str) and '/' in x else x
+)
 df = df.dropna(subset=['lon', 'lat'])
 logging.debug("DataFrame after preprocessing: %s rows", len(df))
 
@@ -146,19 +159,12 @@ sidebar_cards = html.Div([
 app.layout = html.Div([
     # HEADER
     html.Div([
-        html.Div([
-            html.Img(src=app.get_asset_url('LogoSite.drawio.png'), style={"height": "60px"})
-        ], style={"flex": "1", "textAlign": "left"}),
-        html.Div([
-            html.H1("Woningbouw Plannen Amsterdam: Dashboard", style={
-                'color': '#008080',
-                'font-family': 'system-ui',
-                'padding': '20px',
-                'textAlign': 'center',
-                'fontSize': '36px',
-                'margin': '0'
-            })
-        ], style={"flex": "2", "textAlign": "center"}),
+        html.Div([html.Img(src=app.get_asset_url('LogoSite.drawio.png'), style={"height": "60px"})],
+                 style={"flex": "1", "textAlign": "left"}),
+        html.Div([html.H1("Woningbouw Plannen Amsterdam: Dashboard", style={
+            'color': '#008080', 'font-family': 'system-ui',
+            'padding': '20px', 'textAlign': 'center', 'fontSize': '36px', 'margin': '0'
+        })], style={"flex": "2", "textAlign": "center"}),
         html.Div([], style={"flex": "1"})
     ], style={"display": "flex", "alignItems": "center", "justifyContent": "center", "backgroundColor": "#FFFFFF"}),
 
@@ -169,7 +175,7 @@ app.layout = html.Div([
             html.Div([html.H5("📁 Aantal Projecten"), html.P(id='kpi-projecten')], style={"width": "24%"}),
             html.Div([html.H5("📍 Unieke Buurten"), html.P(id='kpi-buurten')], style={"width": "24%"}),
             html.Div([html.H5("📅 Gem. Startjaar"), html.P(id='kpi-gemjaar')], style={"width": "24%"})
-        ], style={"display": "flex", "justifyContent": "space-around", "padding": "1px 2px", "marginBottom": "2px"})
+        ], style={"display": "flex", "justifyContent": "space-around", "marginBottom": "10px"})
     ]),
 
     # MAIN BODY
@@ -223,9 +229,16 @@ def update_all_graphs(map_type, selected_types, selected_year):
     if not selected_types:
         return tuple(dash.no_update for _ in range(9))
 
-    # Filter by year
-    filtered_df = df[df["startBouwGepland"].dt.year <= selected_year].copy()
+    # Filter by year, after ensuring date parsing
+    filtered_df = df[df["startBouwGepland"].dt.year <= int(selected_year)].copy()
     logging.debug("Filtered by year <= %s: %s rows", selected_year, len(filtered_df))
+
+    # If no valid dates remain, bail early
+    if filtered_df["startBouwGepland"].notna().sum() == 0:
+        logging.warning("All dates are NaT after filtering by year in production")
+        empty_fig = px.line()
+        empty_fig.add_annotation(text="No valid dates", xref="paper", yref="paper", showarrow=False)
+        return (empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, "0", "0", "0", "0")
 
     # Melt and filter values
     id_vars = ["lat", "lon", "projectnaamAfkorting", "stadsdeelNaam",
@@ -235,16 +248,14 @@ def update_all_graphs(map_type, selected_types, selected_year):
     melted["woningtype_label"] = melted["variable"].map(label_map)
     logging.debug("After melt & >0 filter: %s rows", len(melted))
 
-    # Fallback if no data
     if melted.empty:
-        for evt in ["map", "pie", "bar", "line", "top10"]:
-            logging.warning("No data for %s with current filters", evt)
-        empty_fig = px.line()  # generic empty figure
+        logging.warning("Melted DataFrame is empty after value filter")
+        empty_fig = px.bar()
         empty_fig.add_annotation(text="No data for selected filters",
                                  xref="paper", yref="paper", showarrow=False)
         return (empty_fig, empty_fig, empty_fig, empty_fig, empty_fig, "0", "0", "0", "0")
 
-    # Map
+    # Map figure
     if map_type == "heatmap":
         try:
             map_fig = px.density_mapbox(
@@ -268,30 +279,31 @@ def update_all_graphs(map_type, selected_types, selected_year):
 
     map_fig.update_layout(margin={"r":0,"t":50,"l":0,"b":0}, font=dict(size=16))
 
-    # Pie
+    # Pie chart
     wijk_data = melted.groupby(['wijkNaam','woningtype_label'])['value'].sum().reset_index()
     pie_fig = px.pie(wijk_data, names='wijkNaam', values='value',
                      color_discrete_sequence=color_palette)
     pie_fig.update_layout(font=dict(size=16))
 
-    # Bar
+    # Bar chart
     bar_data = melted.groupby(['wijkNaam','woningtype_label'])['value'].sum().reset_index()
     bar_fig = px.bar(bar_data, x="wijkNaam", y="value", color="woningtype_label",
                      barmode="group", color_discrete_sequence=color_palette,
                      labels={"value":"Aantal woningen","wijkNaam":"Wijk"})
     bar_fig.update_layout(font=dict(size=16), xaxis_tickangle=-45)
 
-    # Line
+    # Line chart
     data = filtered_df.dropna(subset=["startBouwGepland"]).copy()
     data['jaar'] = data["startBouwGepland"].dt.year
     grouped = data.groupby('jaar')[selected_types].sum().reset_index()
+    logging.debug("Grouped line data shape: %s", grouped.shape)
     if grouped.empty:
         line_fig = px.line()
-        line_fig.add_annotation(text="No data", xref="paper", yref="paper", showarrow=False)
+        line_fig.add_annotation(text="No data for line chart", xref="paper", yref="paper", showarrow=False)
     else:
-        if len(selected_types)==1:
+        if len(selected_types) == 1:
             line_fig = px.line(grouped, x='jaar', y=selected_types[0],
-                               markers=True, labels={'jaar':'Jaar',selected_types[0]:'Aantal'})
+                               markers=True, labels={'jaar':'Jaar', selected_types[0]:'Aantal'})
         else:
             ml = grouped.melt(id_vars='jaar', value_vars=selected_types,
                               var_name='woningtype', value_name='aantal')
@@ -300,7 +312,7 @@ def update_all_graphs(map_type, selected_types, selected_year):
                                markers=True, labels={'jaar':'Jaar','aantal':'Aantal'})
     line_fig.update_layout(font=dict(size=16), xaxis=dict(dtick=1))
 
-    # Top10
+    # Top 10 buurten
     buurt_data = melted.groupby(['buurtNaam','woningtype_label'])['value'].sum().reset_index()
     top_b = buurt_data.groupby('buurtNaam')['value'].sum().nlargest(10).index
     top10 = buurt_data[buurt_data['buurtNaam'].isin(top_b)]
