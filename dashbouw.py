@@ -165,8 +165,121 @@ def update_all_graphs(map_type, selected_types, selected_year):
         margin={"r": 0, "t": 50, "l": 0, "b": 0},
         font=dict(family="system-ui", size=16)
     )
+    
+    # --- Pie Chart: verdeling per wijk ---
+    wijk_data = melted.groupby(['wijkNaam', 'woningtype_label'])['value'].sum().reset_index()
+    pie_fig = px.pie(
+        wijk_data,
+        names='wijkNaam',
+        values='value',
+        #title="<b>Verdeling per Wijk</b>",
+        color_discrete_sequence=color_palette
+    )
+    pie_fig.update_layout(
+        legend=dict(font=dict(size=18)),
+        font=dict(family="system-ui", size=16),
+        title_font=dict(family="system-ui", size=22)
+    )
 
-    # ... pie, bar, line, top10 chart code unchanged ...
+    # --- Bar Chart: verhouding woningtypes per wijk ---
+    bar_data = melted.groupby(['wijkNaam', 'woningtype_label'])['value'].sum().reset_index()
+    bar_fig = px.bar(
+        bar_data,
+        x="wijkNaam",
+        y="value",
+        color="woningtype_label",
+        barmode="group",
+        #title="<b>Verdeling Woningtypen per Wijk</b>",
+        color_discrete_sequence=color_palette,
+        labels={"value": "Aantal woningen", "wijkNaam": "Wijk", "woningtype_label": "Woningtype"}
+    )
+    bar_fig.update_layout(
+        font=dict(family="system-ui", size=16),
+        title_font=dict(family="system-ui", size=22),
+        xaxis_tickangle=-45,
+        legend_font=dict(size=14),
+        margin={"r": 0, "t": 50, "l": 0, "b": 0}
+    )
+        # --- Line Chart: geplande woningen per jaar (robust via ‘melted’) ---
+    # 1) Use the same melted DataFrame you’ve already filtered for value > 0
+    melted_line = melted.copy()
+    melted_line['jaar'] = melted_line['startBouwGepland'].dt.year
+
+    # 2) Aggregate by year and woningtype
+    grouped_line = (
+        melted_line
+        .groupby(['jaar', 'woningtype_label'])['value']
+        .sum()
+        .reset_index()
+    )
+
+    # 3) Ensure we cover every year in the slider range (fill missing with 0)
+    min_year = int(df['startBouwGepland'].dt.year.min())
+    max_year = int(selected_year)
+    all_years = pd.DataFrame({'jaar': list(range(min_year, max_year + 1))})
+    # Cross‑join to get every (jaar, woningtype_label) combo
+    types = pd.DataFrame({'woningtype_label': melted_line['woningtype_label'].unique()})
+    full_idx = all_years.merge(types, how='cross')
+    grouped_line = (
+        full_idx
+        .merge(grouped_line, on=['jaar','woningtype_label'], how='left')
+        .fillna({'value': 0})
+    )
+
+    # 4) Build the figure
+    line_fig = px.line(
+        grouped_line,
+        x='jaar',
+        y='value',
+        color='woningtype_label',
+        markers=True,
+        labels={
+            'jaar': 'Jaar',
+            'value': 'Aantal Woningen',
+            'woningtype_label': 'Woningtype'
+        },
+        color_discrete_sequence=color_palette
+    )
+    line_fig.update_layout(
+        margin={"r":0, "t":50, "l":0, "b":0},
+        font=dict(family="system-ui", size=16),
+        title_font=dict(family="system-ui", size=22),
+        legend_font=dict(size=18),
+        xaxis=dict(dtick=1)
+    )
+
+    # --- Top 10 Buurten met meeste geplande woningen per type ---
+    buurt_type_data = melted.groupby(['buurtNaam', 'woningtype_label'])['value'].sum().reset_index()
+    top_buurten = (
+        buurt_type_data.groupby('buurtNaam')['value']
+        .sum()
+        .sort_values(ascending=False)
+        .head(10)
+        .index.tolist()
+    )
+    top10_data = buurt_type_data[buurt_type_data['buurtNaam'].isin(top_buurten)]
+
+    top10_fig = px.bar(
+        top10_data,
+        x='value',
+        y='buurtNaam',
+        color='woningtype_label',
+        orientation='h',
+        #title="<b>Top 10 Buurten met Meeste Geselecteerde Woningen (per Type)</b>",
+        labels={'value': 'Aantal Woningen', 'buurtNaam': 'Buurt', 'woningtype_label': 'Woningtype'},
+        color_discrete_sequence=color_palette
+    )
+    top10_fig.update_layout(
+        yaxis=dict(categoryorder='total ascending'),
+        font=dict(family="system-ui", size=16),
+        title_font=dict(family="system-ui", size=22),
+        margin={"r": 0, "t": 50, "l": 0, "b": 0},
+        legend_title_text=""
+    )
+    totaal_woningen = int(melted["value"].sum())
+    aantal_projecten = melted["projectnaamAfkorting"].nunique()
+    unieke_buurten = melted["buurtNaam"].nunique()
+    gemiddeld_jaar = int(melted["startBouwGepland"].dt.year.mean())
 
     return map_fig, pie_fig, bar_fig, line_fig, top10_fig, \
            f"{totaal_woningen}", f"{aantal_projecten}", f"{unieke_buurten}", f"{gemiddeld_jaar}"
