@@ -275,7 +275,7 @@ def update_all_graphs(map_type, selected_types, selected_year):
     melted = melted[melted["value"] > 0]
     melted["woningtype_label"] = melted["variable"].map(label_map)
     if map_type == "heatmap":
-        map_fig = px.density_mapbox(
+        map_fig = px.density_map(
             melted,
             lat="lat",
             lon="lon",
@@ -288,7 +288,7 @@ def update_all_graphs(map_type, selected_types, selected_year):
             color_continuous_scale="Teal"
         )
     else:
-        map_fig = px.scatter_mapbox(
+        map_fig = px.scatter_map(
             melted,
             lat="lat",
             lon="lon",
