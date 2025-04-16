@@ -283,7 +283,7 @@ def update_all_graphs(map_type, selected_types, selected_year):
             radius=25,
             center=dict(lat=52.37, lon=4.89),
             zoom=11,
-            mapbox_style="carto-positron",
+            map_style="carto-positron",
             title="<b>Woningbouw Dichtheid (Heatmap)</b>",
             color_continuous_scale="Teal"
         )
@@ -295,7 +295,7 @@ def update_all_graphs(map_type, selected_types, selected_year):
             color="woningtype_label",
             hover_name="projectnaamAfkorting",
             hover_data=["stadsdeelNaam", "startBouwGepland"],
-            mapbox_style="open-street-map",
+            map_style="open-street-map",
             zoom=11,
             height=500,
             color_discrete_sequence=color_palette
