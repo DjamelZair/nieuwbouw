@@ -100,19 +100,178 @@ label_map = {
 }
 
 # --- Dash setup ---
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-server = app.server
-
 sidebar_cards = html.Div([
-    dbc.Card([...your sidebar code...]),
+    dbc.Card([
+        dbc.CardHeader("Selecteer woningtype", style={
+            "fontSize": "24px", "textAlign": "center", "color": "#005354",
+            "backgroundColor": "#e6f2f2", "fontWeight": "bold"
+        }),
+        dbc.CardBody([
+            dbc.Checklist(
+                id='woningtype-checklist',
+                options=[{"label": label_map[k], "value": k} for k in woningtypes],
+                value=woningtypes,
+                switch=True,
+                style={"fontSize": "18px", "color": "#005354"}
+            )
+        ])
+    ], style={
+        "marginBottom": "30px",
+        "border": "1px solid #008080",
+        "borderRadius": "12px",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.05)",
+        "backgroundColor": "#ffffff"
+    }),
     html.Br(),
-    dbc.Card([...your year filter code...])
+    dbc.Card([
+        dbc.CardHeader("Filter op geplande startdatum (t/m jaar)", style={
+            "fontSize": "24px", "textAlign": "center", "color": "#005354",
+            "backgroundColor": "#e6f2f2", "fontWeight": "bold"
+        }),
+        dbc.CardBody([
+            dbc.Label("Jaarfilter", html_for="jaar-slider", style={
+                "textAlign": "center", "width": "100%", "fontSize": "18px", "color": "#00535
+            }),
+            dcc.Slider(
+                id='jaar-slider',
+                min=int(df["startBouwGepland"].dt.year.min()),
+                max=int(df["startBouwGepland"].dt.year.max()),
+                step=1,
+                value=int(df["startBouwGepland"].dt.year.max()),
+                marks={str(year): str(year) for year in sorted(df["startBouwGepland"].dt.yea
+                tooltip={"placement": "bottom", "always_visible": True},
+                included=False
+            )
+        ])
+    ], style={
+        "marginBottom": "30px",
+        "border": "1px solid #008080",
+        "borderRadius": "12px",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.05)",
+        "backgroundColor": "#ffffff"
+    })
+])
+app.layout = html.Div([
+    # HEADER
+    html.Div([
+    html.Div([
+        html.Img(
+            src=app.get_asset_url('LogoSite.drawio.png'),
+            style={"height": "60px"}
+        )
+    ], style={"flex": "1", "textAlign": "left"}),
+
+    html.Div([
+        html.H1("Woningbouw Plannen Amsterdam: Dashboard", style={
+            'color': '#008080',
+            'font-family': 'system-ui',
+            'padding': '20px',
+            'textAlign': 'center',
+            'fontSize': '36px',
+            'margin': '0'
+        })
+    ], style={"flex": "2", "textAlign": "center"}),
+
+    html.Div([], style={"flex": "1"})  # spacer div to balance the layout
+], style={"display": "flex", "alignItems": "center", "justifyContent": "center", "background
+
+
+    # KPI BLOK
+    html.Div([
+        html.Div([
+            html.Div([
+                html.H5("🏗️ Totaal Woningen", style={"textAlign": "center"}),
+                html.P(id='kpi-totaal', style={
+                    "textAlign": "center", "fontSize": "30px", "color": "#008080"
+                })
+            ], style={"width": "24%"}),
+
+            html.Div([
+                html.H5("📁 Aantal Projecten", style={"textAlign": "center"}),
+                html.P(id='kpi-projecten', style={
+                    "textAlign": "center", "fontSize": "30px", "color": "#008080"
+                })
+            ], style={"width": "24%"}),
+
+            html.Div([
+                html.H5("📍 Unieke Buurten", style={"textAlign": "center"}),
+                html.P(id='kpi-buurten', style={
+                    "textAlign": "center", "fontSize": "30px", "color": "#008080"
+                })
+            ], style={"width": "24%"}),
+
+            html.Div([
+                html.H5("📅 Gem. Startjaar", style={"textAlign": "center"}),
+                html.P(id='kpi-gemjaar', style={
+                    "textAlign": "center", "fontSize": "30px", "color": "#008080"
+                })
+            ], style={"width": "24%"})
+        ], style={"display": "flex", "justifyContent": "space-around", "padding": "1px 2px",
+    ]),
+# MAIN BODY
+html.Div([
+    # SIDEBAR
+    html.Div([
+        sidebar_cards,
+        html.Hr(style={"borderTop": "1px solid #ddd", "margin": "20px 0"}),
+
+        html.H4("Verdeling per Wijk", style={
+            "fontSize": "25px", 'textAlign': 'center', "color": "#005354"
+        }),
+        dcc.Graph(id='pie-chart'),
+
+        html.H4("Verdeling Woontypen per Wijk", style={
+            "fontSize": "25px", 'textAlign': 'center', "color": "#005354"
+        }),
+        dcc.Graph(id='bar-chart', style={"marginTop": "30px"})
+    ], style={
+        "width": "30%", "padding": "20px",
+        "border": "1px solid #008080", "borderRadius": "12px", "margin": "10px",
+        "boxShadow": "0 2px 10px rgba(0, 0, 0, 0.05)", "backgroundColor": "#fff"
+    }),
+    
+        # MAIN PANEL
+        html.Div([
+            html.H4("GeoLocatie Presentatie Nieuwbouw Plannen:", style={
+                "fontSize": "30px", 'textAlign': 'center', "color": "#005354"
+            }),
+            dcc.RadioItems(
+                id='map-type-toggle',
+                options=[
+                    {'label': '📍 Puntenkaart', 'value': 'scatter'},
+                    {'label': '🔥 Heatmap', 'value': 'heatmap'}
+                ],
+                value='heatmap',
+                labelStyle={'marginRight': '15px', 'fontSize': '18px'},
+                inputStyle={'marginRight': '6px'},
+                style={'display': 'flex', 'justifyContent': 'center', 'marginBottom': '10px'
+            ),
+            dcc.Graph(id='map'),
+            html.H4("Aantal Woningen per Jaar (Gepland):", style={
+                "fontSize": "24px",
+                "textAlign": "center",
+                "color": "#005354",
+                "marginBottom": "6px",
+                "marginTop": "16px"
+            }),
+            dcc.Graph(id='line-chart'),
+
+            html.H4("Top 10 Buurten per Type:", style={
+                "fontSize": "24px", 
+                'textAlign': 'center', 
+                "color": "#005354",
+                "marginBottom": "2px",  # kleiner maken
+                "marginTop": "20px"
+            }),
+            dcc.Graph(id='top10-chart')
+        ], style={
+            "width": "70%", "padding": "20px",
+            "border": "1px solid #008080", "borderRadius": "12px", "margin": "10px",
+            "boxShadow": "0 2px 10px rgba(0, 0, 0, 0.05)", "backgroundColor": "#fff"
+        })
+    ], style={"display": "flex", "flexDirection": "row", "alignItems": "start"})
 ])
 
-app.layout = html.Div([
-    # Your header, KPI block, sidebar and main panel layout
-    # (omitted for brevity; use the same layout as before)
-])
 
 # --- Callback for all graphs and KPIs ---
 @app.callback(
