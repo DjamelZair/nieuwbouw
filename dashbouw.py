@@ -242,22 +242,51 @@ def update_all_graphs(map_type, selected_types, selected_year):
 
     # Map figure using px.density_map
     if map_type == "heatmap":
-        map_fig = px.density_map(
-            melted, lat="lat", lon="lon", z="value", radius=10,
-            center=dict(lat=52.37, lon=4.89), zoom=11,
-            mapbox_style="open-street-map",
-            title="<b>Woningbouw Dichtheid (Heatmap)</b>",
-            color_continuous_scale="Teal"
-        )
+        try:
+            # density_map only accepts lat, lon, z, radius, color_continuous_scale, title, etc.
+            map_fig = px.density_map(
+                melted,
+                lat="lat",
+                lon="lon",
+                z="value",
+                radius=10,
+                color_continuous_scale="Teal",
+                title="<b>Woningbouw Dichtheid (Heatmap)</b>"
+            )
+        except Exception as e:
+            logging.warning("density_map failed (%s), falling back to scatter_mapbox", e)
+            map_fig = px.scatter_mapbox(
+                melted,
+                lat="lat",
+                lon="lon",
+                color="woningtype_label",
+                hover_name="projectnaamAfkorting",
+                hover_data=["stadsdeelNaam", "startBouwGepland"],
+                mapbox_style="open-street-map",
+                zoom=11,
+                height=500,
+                color_discrete_sequence=color_palette
+            )
+            map_fig.update_traces(marker=dict(size=15))
     else:
         map_fig = px.scatter_mapbox(
-            melted, lat="lat", lon="lon", color="woningtype_label",
-            hover_name="projectnaamAfkorting", hover_data=["stadsdeelNaam", "startBouwGepland"],
-            mapbox_style="open-street-map", zoom=11, height=500,
+            melted,
+            lat="lat",
+            lon="lon",
+            color="woningtype_label",
+            hover_name="projectnaamAfkorting",
+            hover_data=["stadsdeelNaam", "startBouwGepland"],
+            mapbox_style="open-street-map",
+            zoom=11,
+            height=500,
             color_discrete_sequence=color_palette
         )
         map_fig.update_traces(marker=dict(size=15))
-    map_fig.update_layout(margin={"r":0,"t":50,"l":0,"b":0}, font=dict(size=16))
+
+    map_fig.update_layout(
+        margin={"r": 0, "t": 50, "l": 0, "b": 0},
+        font=dict(family="system-ui", size=16)
+    )
 
     # Pie chart
     wijk_data = melted.groupby(['wijkNaam','woningtype_label'])['value'].sum().reset_index()
